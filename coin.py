@@ -79,6 +79,17 @@ class Chain:
         new_block.mine_block(self.difficulty)
         self.chain.append(new_block)
 
+    def get_balance(self, public_key_pem: str):
+        balance = 0
+        for block in self.chain:
+            transaction = block.transaction
+            if transaction.payer == public_key_pem:
+                balance -= transaction.amount
+            if transaction.receiver == public_key_pem:
+                balance += transaction.amount
+        return balance
+        
+
 class Wallet:
     def __init__(self):
         self.public_key, self.private_key = rsa.newkeys(2048)
@@ -88,6 +99,8 @@ class Wallet:
         transaction.sign_transaction(self.private_key)
         chain.add_block(transaction)
         print('Transaction sent successfully')
+    def get_balance(self, chain: Chain):
+        return chain.get_balance(self.public_key.save_pkcs1().decode())  
 
 
 # Usage
@@ -98,4 +111,5 @@ ts1 = Wallet()
 ts2 = Wallet()
 
 satoshi.send_money(10, ts1.public_key, chain)
+print(ts1.get_balance(chain))
 print("Blockchain:", chain.chain)
