@@ -2,16 +2,39 @@ import hashlib
 import json
 import time
 import rsa
+import base64
 
 print('Loading...')
+
 class Transaction:
     def __init__(self, amount: float, payer: str, receiver: str):
         self.amount = amount
-        self.payer = payer
-        self.receiver = receiver
-    
+        self.payer = payer 
+        self.receiver = receiver 
+        self.signature = None
+
+    def sign_transaction(self, private_key):
+        transaction_string = self.__str__()
+        self.signature = base64.b64encode(rsa.sign(transaction_string.encode(), private_key, 'SHA-256')).decode()
+
+    def verify_signature(self):
+        if not self.signature:
+            return False
+        try:
+            public_key = rsa.PublicKey.load_pkcs1(self.payer.encode())
+            signature = base64.b64decode(self.signature)
+            rsa.verify(self.__str__().encode(), signature, public_key)
+            return True
+        except rsa.VerificationError:
+            return False
+
     def __str__(self):
-        return json.dumps(self.__dict__)
+
+        return json.dumps({
+            'amount': self.amount,
+            'payer': self.payer,
+            'receiver': self.receiver
+        }, sort_keys=True)
 
 class Block:
     def __init__(self, prev_hash: str, transaction: Transaction, timestamp: int = None):
@@ -41,12 +64,17 @@ class Chain:
         self.difficulty = 4
     
     def create_genesis_block(self):
-        return Block("0", Transaction(100, "genesis", "satoshi"))
+        genesis_key = rsa.newkeys(2048)[1]
+        genesis_transaction = Transaction(100, "genesis_key", "satoshi_key")
+        genesis_transaction.signature = base64.b64encode(rsa.sign(genesis_transaction.__str__().encode(), genesis_key, 'SHA-256')).decode()
+        return Block("0", genesis_transaction)
     
     def get_last_block(self):
         return self.chain[-1]
     
     def add_block(self, transaction: Transaction):
+        if not transaction.verify_signature():
+            raise ValueError("Signature no bueno")
         new_block = Block(self.get_last_block().compute_hash(), transaction)
         new_block.mine_block(self.difficulty)
         self.chain.append(new_block)
@@ -55,25 +83,19 @@ class Wallet:
     def __init__(self):
         self.public_key, self.private_key = rsa.newkeys(2048)
     
-    def send_money(self, amount: float, receiver_public_key: rsa.PublicKey):
-        transaction = Transaction(amount, str(self.public_key), str(receiver_public_key))
-        signature = rsa.sign(transaction.__str__().encode(), self.private_key, 'SHA-256')
-        
-   
-        global chain
+    def send_money(self, amount: float, receiver_public_key: rsa.PublicKey, chain: Chain):
+        transaction = Transaction(amount, self.public_key.save_pkcs1().decode(), receiver_public_key.save_pkcs1().decode())
+        transaction.sign_transaction(self.private_key)
         chain.add_block(transaction)
-        print('sending')
+        print('Transaction sent successfully')
 
 
-
-#Usage
-
+# Usage
 chain = Chain()
-
 
 satoshi = Wallet()
 ts1 = Wallet()
 ts2 = Wallet()
 
-
-satoshi.send_money(10, ts1.public_key)
+satoshi.send_money(10, ts1.public_key, chain)
+print("Blockchain:", chain.chain)
