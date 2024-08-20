@@ -149,35 +149,45 @@ class Block:
         self.timestamp = timestamp
         self.data = data
         self.previousHash = previousHash
-        self.hash = self.calculateHash()
+        self.hash = self.calculate_hash()
     
-    def calculateHash(self):
+    def calculate_hash(self):
         block_string = str(self.timestamp) + str(self.data) + str(self.previousHash)
         block_hash = hashlib.sha256(block_string.encode('utf-8')).hexdigest()
         return block_hash
 
 class Blockchain:
     def __init__(self):
-        self.chain = [self.createGenesisBlock()]
+        self.chain = [self.create_genesis_block()]
     
-    def createGenesisBlock(self):
+    def create_genesis_block(self):
         return Block(time.time(), "Genesis Block", "0")
     
-    def getLatestBlock(self):
+    def get_latest_block(self):
         return self.chain[-1]
     
-    def addBlock(self, newBlock):
-        newBlock.previousHash = self.getLatestBlock().hash
-        newBlock.hash = newBlock.calculateHash()
+    def add_block(self, newBlock):
+        newBlock.previousHash = self.get_latest_block().hash
+        newBlock.hash = newBlock.calculate_hash()
         self.chain.append(newBlock)
+    
+    def check_chain_validity(self):
+        for i in range(1, len(self.chain)):
+            current_block = self.chain[i]
+            previous_block = self.chain[i - 1]
+            if current_block.hash != current_block.calculate_hash():
+                return False
+            if current_block.previousHash != previous_block.hash:
+                return False
+        return True
 
-# Instantiate Blockchain
 amjkcoin = Blockchain()
 
-# Add blocks
-amjkcoin.addBlock(Block(time.time(), {"amount": 4}, amjkcoin.getLatestBlock().hash))
-amjkcoin.addBlock(Block(time.time(), {"amount": 34}, amjkcoin.getLatestBlock().hash))
+amjkcoin.add_block(Block(time.time(), {"amount": 4}, amjkcoin.get_latest_block().hash))
+amjkcoin.add_block(Block(time.time(), {"amount": 34}, amjkcoin.get_latest_block().hash))
 
-# Print the blockchain
+
 for block in amjkcoin.chain:
     print(f"Timestamp: {block.timestamp}, Data: {block.data}, Hash: {block.hash}, Previous Hash: {block.previousHash}")
+
+print(amjkcoin.check_chain_validity())
