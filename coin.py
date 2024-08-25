@@ -144,20 +144,37 @@ chain.mine_pending_transactions(satoshi)
 import hashlib
 import time
 
+class Transaction:
+    def __init__(self, sender, receiver, amount):
+        self.sender = sender
+        self.receiver = receiver
+        self.amount = amount
+    def __str__(self):
+        return f"{self.sender} -> {self.receiver}: {self.amount}"
 class Block:
-    def __init__(self, timestamp, data, previous_hash):
+    def __init__(self, timestamp, transactions, previous_hash = ''):
         self.timestamp = timestamp
-        self.data = data
+        self.transactions = transactions
         self.previous_hash = previous_hash
+        self.nonce = 0
         self.hash = self.calculate_hash()
     
+    
     def calculate_hash(self):
-        block_string = f"{self.timestamp}{self.data}{self.previous_hash}"
+        block_string = f"{self.timestamp}{self.transactions}{self.previous_hash}{self.nonce}"
         return hashlib.sha256(block_string.encode('utf-8')).hexdigest()
-
+    def mine_block(self, difficulty):
+        prefix = '0' * difficulty
+        while( not self.hash.startswith(prefix)):
+            self.nonce += 1
+            self.hash = self.calculate_hash()
+            print(self.hash)
 class Blockchain:
     def __init__(self):
         self.chain = [self.create_genesis_block()]
+        self.difficulty = 2
+        self.pending_transactions = []
+        self.mining_reward = 20
     
     def create_genesis_block(self):
         return Block(time.time(), "Genesis Block", "0")
@@ -165,11 +182,14 @@ class Blockchain:
     def get_latest_block(self):
         return self.chain[-1]
     
-    def add_block(self, new_block):
-        new_block.previous_hash = self.get_latest_block().hash
-        new_block.hash = new_block.calculate_hash()
-        self.chain.append(new_block)
-    
+    def mine_pending_transactions(self, miner_address):
+        block = Block(time.time(), self.pending_transactions)
+        block.mine_block(self.difficulty)
+        print('block mined')
+        self.chain.append(block)
+        self.pending_transactions = [Transaction(None, miner_address, self.mining_reward)]
+    def create_transaction(self, transaction):
+        self.pending_transactions.append(transaction)
     def check_chain_validity(self):
         for i in range(1, len(self.chain)):
             current_block = self.chain[i]
@@ -181,13 +201,13 @@ class Blockchain:
         return True
 
 amjkcoin = Blockchain()
-
-
-amjkcoin.add_block(Block(time.time(), {"amount": 4}, amjkcoin.get_latest_block().hash))
-amjkcoin.add_block(Block(time.time(), {"amount": 34}, amjkcoin.get_latest_block().hash))
-
-
+amjkcoin.create_transaction(Transaction('test1', 'test2', 100))
+print('startmine')
+amjkcoin.mine_pending_transactions('testminer')
 for block in amjkcoin.chain:
-    print(f"Timestamp: {block.timestamp}, Data: {block.data}, Hash: {block.hash}, Previous Hash: {block.previous_hash}")
-
-print(amjkcoin.check_chain_validity())
+    print("Transactions:")
+    for i in block.transactions:
+        print(i)
+    print(f"Previous Hash: {block.previous_hash}")
+    print(f"Hash: {block.hash}")
+   
