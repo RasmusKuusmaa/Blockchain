@@ -1,11 +1,25 @@
 import hashlib
 import time
+import rsa
 
 class Transaction:
     def __init__(self, sender, receiver, amount):
         self.sender = sender
         self.receiver = receiver
         self.amount = amount
+        self.signature = None
+    def calculate_hash(self):
+        return f"{self.sender}{self.receiver}{self.amount}".encode('utf-8')
+    def sign_transaction(self, private_key):
+        self.signature = rsa.sign(self.calculate_hash(), private_key, 'SHA-256')
+    def is_valid(self):
+        if not self.signature:
+            return False
+        try:
+            rsa.verify(self.calculate_hash(), self.signature, self.sender)
+            return True
+        except rsa.VerificationError:
+            return False
     def __str__(self):
         return f"{self.sender} -> {self.receiver}: {self.amount}"
 class Block:
@@ -19,6 +33,7 @@ class Block:
     
     def calculate_hash(self):
         block_string = f"{self.timestamp}{self.transactions}{self.previous_hash}{self.nonce}"
+
         return hashlib.sha256(block_string.encode('utf-8')).hexdigest()
     def mine_block(self, difficulty):
         prefix = '0' * difficulty
@@ -26,6 +41,9 @@ class Block:
             self.nonce += 1
             self.hash = self.calculate_hash()
             print(self.hash)
+    def valid_transactions(self):
+        return all(trans.is_valid() for trans in self.transactions) 
+
 class Blockchain:
     def __init__(self):
         self.chain = [self.create_genesis_block()]
@@ -46,7 +64,10 @@ class Blockchain:
         self.chain.append(block)
         self.pending_transactions = [Transaction(None, miner_address, self.mining_reward)]
     def create_transaction(self, transaction):
-        self.pending_transactions.append(transaction)
+        if transaction.is_valid():
+            self.pending_transactions.append(transaction)
+        else:
+            print('Transaction nyet valido')
     def get_balance(self, address):
         balance = 0
         for block in self.chain:
